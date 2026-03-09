@@ -1,0 +1,358 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<title>MovieBuzz SA</title>
+<head>
+<title>MovieBuzz SA</title>
+<meta name="google-site-verification" content="RANDOM_CODE_HERE" />
+</head>
+
+<style>
+body{
+ margin:0;
+ font-family:Arial;
+ background:black;
+ color:white;
+}
+
+header{
+ display:flex;
+ justify-content:space-between;
+ align-items:center;
+ padding:15px 30px;
+ background:#111;
+ border-bottom:2px solid red;
+}
+
+header h1{
+ color:red;
+ cursor:pointer;
+}
+
+nav button{
+ background:none;
+ border:none;
+ color:white;
+ margin:0 8px;
+ font-size:15px;
+ cursor:pointer;
+}
+
+nav button:hover{
+ color:red;
+}
+
+#searchInput{
+ padding:6px;
+ border-radius:5px;
+ border:none;
+}
+
+.grid{
+ display:grid;
+ grid-template-columns:repeat(auto-fill,minmax(180px,1fr));
+ gap:15px;
+ padding:20px;
+}
+
+.card img{
+ width:100%;
+ border-radius:8px;
+ cursor:pointer;
+ transition:0.3s;
+}
+
+.card img:hover{
+ transform:scale(1.05);
+}
+
+.card button{
+ margin-top:5px;
+ width:100%;
+ padding:6px;
+ background:red;
+ border:none;
+ color:white;
+ border-radius:5px;
+ cursor:pointer;
+}
+
+.hero{
+ background-size:cover;
+ background-position:center;
+ padding:40px;
+}
+
+.overlay{
+ background:rgba(0,0,0,0.85);
+ padding:30px;
+ border-radius:10px;
+}
+
+.flex{
+ display:flex;
+ gap:30px;
+}
+
+.poster{
+ width:250px;
+ border-radius:10px;
+}
+</style>
+</head>
+
+<body>
+
+<header>
+<h1 onclick="showHome()">🎬 MovieBuzz SA</h1>
+
+<nav>
+<button onclick="showHome()">Home</button>
+<button onclick="showMovies()">Movies</button>
+<button onclick="showTV()">TV Shows</button>
+<button onclick="showWatchlist()">Watchlist</button>
+<input type="text" id="searchInput" placeholder="Search...">
+<button onclick="searchContent()">Search</button>
+<button onclick="showAuth()">Login</button>
+<button onclick="showProfile()">Profile</button>
+<button onclick="logout()">Logout</button>
+</nav>
+</header>
+
+<div id="content"></div>
+
+<script>
+
+const API_KEY = "c268d99cee99c69dceb9cc654be2e71e";
+const IMG = "https://image.tmdb.org/t/p/w500";
+const BACKDROP = "https://image.tmdb.org/t/p/original";
+
+/* ================= USERS ================= */
+
+let users = JSON.parse(localStorage.getItem("users")) || [];
+let currentUser = localStorage.getItem("currentUser");
+
+function saveUsers(){
+ localStorage.setItem("users", JSON.stringify(users));
+}
+
+function showAuth(){
+ document.getElementById("content").innerHTML = `
+ <div style="padding:40px;text-align:center;">
+  <h2>Login or Register</h2>
+  <input id="username" placeholder="Username"><br><br>
+  <input id="password" type="password" placeholder="Password"><br><br>
+  <button onclick="register()">Register</button>
+  <button onclick="login()">Login</button>
+ </div>`;
+}
+
+function register(){
+ const username=document.getElementById("username").value;
+ const password=document.getElementById("password").value;
+
+ if(!username || !password){
+  alert("Fill all fields");
+  return;
+ }
+
+ if(users.find(u=>u.username===username)){
+  alert("User already exists");
+  return;
+ }
+
+ users.push({username,password});
+ saveUsers();
+ alert("Account Created");
+}
+
+function login(){
+ const username=document.getElementById("username").value;
+ const password=document.getElementById("password").value;
+
+ const user=users.find(u=>u.username===username && u.password===password);
+
+ if(!user){
+  alert("Invalid login");
+  return;
+ }
+
+ currentUser=username;
+ localStorage.setItem("currentUser",username);
+ alert("Login Successful");
+ showHome();
+}
+
+function logout(){
+ currentUser=null;
+ localStorage.removeItem("currentUser");
+ alert("Logged Out");
+ showHome();
+}
+
+function requireLogin(){
+ if(!currentUser){
+  alert("Login first!");
+  showAuth();
+  return false;
+ }
+ return true;
+}
+
+/* ================= WATCHLIST ================= */
+
+function getWatchlist(){
+ if(!currentUser) return [];
+ return JSON.parse(localStorage.getItem("watchlist_"+currentUser)) || [];
+}
+
+function saveWatchlist(list){
+ localStorage.setItem("watchlist_"+currentUser, JSON.stringify(list));
+}
+
+function addToWatchlist(type,id,title,poster){
+ if(!requireLogin()) return;
+
+ let watchlist=getWatchlist();
+
+ if(!watchlist.find(item=>item.id===id)){
+  watchlist.push({type,id,title,poster});
+  saveWatchlist(watchlist);
+  alert("Added to Watchlist");
+ }
+}
+
+function removeFromWatchlist(id){
+ let watchlist=getWatchlist();
+ watchlist=watchlist.filter(item=>item.id!==id);
+ saveWatchlist(watchlist);
+ showWatchlist();
+}
+
+function showWatchlist(){
+ if(!requireLogin()) return;
+
+ let watchlist=getWatchlist();
+ let html='<div class="grid">';
+
+ watchlist.forEach(item=>{
+  html+=`
+  <div class='card'>
+   <img src='${IMG+item.poster}'
+   onclick="openDetails('${item.type}',${item.id})">
+   <button onclick="removeFromWatchlist(${item.id})">Remove</button>
+  </div>`;
+ });
+
+ html+='</div>';
+ document.getElementById("content").innerHTML=html;
+}
+
+/* ================= PROFILE ================= */
+
+function showProfile(){
+ if(!requireLogin()) return;
+
+ document.getElementById("content").innerHTML=`
+ <div style="padding:40px;text-align:center;">
+  <h2>👤 Profile</h2>
+  <p><b>Username:</b> ${currentUser}</p>
+  <p><b>Saved Movies:</b> ${getWatchlist().length}</p>
+  <button onclick="showWatchlist()">My Watchlist</button>
+ </div>`;
+}
+
+/* ================= CONTENT ================= */
+
+function createGrid(items,typeOverride=null){
+ let html='<div class="grid">';
+ items.forEach(item=>{
+  if(!item.poster_path) return;
+  const mediaType=typeOverride||item.media_type;
+
+  html+=`
+  <div class='card'>
+   <img src='${IMG+item.poster_path}'
+   onclick="openDetails('${mediaType}',${item.id})">
+  </div>`;
+ });
+ html+='</div>';
+ return html;
+}
+
+function showHome(){
+ fetch(`https://api.themoviedb.org/3/trending/all/week?api_key=${API_KEY}`)
+ .then(res=>res.json())
+ .then(data=>{
+  document.getElementById("content").innerHTML=
+  createGrid(data.results);
+ });
+}
+
+function showMovies(){
+ fetch(`https://api.themoviedb.org/3/trending/movie/week?api_key=${API_KEY}`)
+ .then(res=>res.json())
+ .then(data=>{
+  document.getElementById("content").innerHTML=
+  createGrid(data.results,"movie");
+ });
+}
+
+function showTV(){
+ fetch(`https://api.themoviedb.org/3/trending/tv/week?api_key=${API_KEY}`)
+ .then(res=>res.json())
+ .then(data=>{
+  document.getElementById("content").innerHTML=
+  createGrid(data.results,"tv");
+ });
+}
+
+function searchContent(){
+ const query=document.getElementById("searchInput").value;
+ if(!query) return;
+
+ fetch(`https://api.themoviedb.org/3/search/multi?api_key=${API_KEY}&query=${query}`)
+ .then(res=>res.json())
+ .then(data=>{
+  document.getElementById("content").innerHTML=
+  createGrid(data.results);
+ });
+}
+
+function openDetails(type,id){
+ fetch(`https://api.themoviedb.org/3/${type}/${id}?api_key=${API_KEY}&append_to_response=videos`)
+ .then(res=>res.json())
+ .then(data=>{
+
+  const trailer=data.videos.results.find(v=>v.type==="Trailer");
+
+  document.getElementById("content").innerHTML=`
+  <div class="hero" style="background-image:url('${BACKDROP+data.backdrop_path}')">
+   <div class="overlay">
+    <div class="flex">
+     <img class="poster" src="${IMG+data.poster_path}">
+     <div>
+      <h1>${data.title||data.name}</h1>
+      <p>${data.overview}</p>
+
+      <button onclick="addToWatchlist('${type}',${id},
+      '${data.title||data.name}',
+      '${data.poster_path}')">
+      + Add to Watchlist
+      </button>
+
+      ${trailer?`<button onclick="window.open('https://www.youtube.com/watch?v=${trailer.key}')">🎬 Watch Trailer</button>`:''}
+     </div>
+    </div>
+   </div>
+  </div>`;
+ });
+}
+
+showHome();
+
+</script>
+
+</body>
+</html>
